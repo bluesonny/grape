@@ -1,6 +1,5 @@
 package config
 
-import "C"
 import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
@@ -55,7 +54,7 @@ func init() {
 	}
 	vip.OnConfigChange(func(e fsnotify.Event) {
 		vip.Unmarshal(&ViperConfig)
-		log.Println("Info: config change---" + C.App.Time)
+		log.Println("Info: config change---" + ViperConfig.App.Time)
 	})
 
 }
