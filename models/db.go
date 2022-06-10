@@ -10,7 +10,7 @@ import (
 
 var DB *sqlx.DB
 
-func init() {
+func initDb() {
 	log.Println("config: DB")
 	var err error
 	driver := ViperConfig.Database.Driver
