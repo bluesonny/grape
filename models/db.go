@@ -20,6 +20,8 @@ func init() {
 
 	if err != nil {
 		log.Fatal(err)
+	} else {
+		log.Println("[ok]数据库连接成功...")
 	}
 	DB.SetMaxOpenConns(1024)
 	DB.SetMaxIdleConns(10)
