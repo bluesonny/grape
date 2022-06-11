@@ -305,7 +305,7 @@ func fetch(url string) {
 			g.Abstract = desc
 			list = append(list, &g)
 		})
-	//gr.Insert(list)
+		//gr.Insert(list)
 
 	case "www.formula1.com":
 
@@ -345,7 +345,7 @@ func fetch(url string) {
 			g.Abstract = desc
 			list = append(list, &g)
 		})
-		//gr.Insert(list)
+		gr.Insert(list)
 
 	}
 

@@ -16,7 +16,8 @@ type Grape struct {
 func (gp *Grape) Insert(list []*Grape) (err error) {
 	log.Println("写数据库....")
 	defer DB.Close()
-	statement := "insert into grape (article_id, link, title,abstract,article_time,site) values (:article_id, :link, :title,:abstract,:article_time,:site)"
+	log.Printf("数据源：%#v", list)
+	statement := "insert into grape (article_id, link, title, abstract, article_time, site) values (:article_id, :link, :title, :abstract, :article_time, :site)"
 	_, err = DB.NamedExec(statement, list)
 	if err != nil {
 		log.Printf("数据库失败1%v\n", err)

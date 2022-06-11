@@ -10,7 +10,7 @@ import (
 
 var DB *sqlx.DB
 
-func initDb() {
+func init() {
 	log.Println("config: DB")
 	var err error
 	driver := ViperConfig.Database.Driver
@@ -21,7 +21,7 @@ func initDb() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	DB.SetMaxOpenConns(200)
+	DB.SetMaxOpenConns(1024)
 	DB.SetMaxIdleConns(10)
 	return
 }
