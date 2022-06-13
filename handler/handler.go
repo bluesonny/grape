@@ -19,19 +19,27 @@ var (
 
 func Deal() {
 	urls := config.ViperConfig.Urls.List
-	wg.Add(len(urls))
-	for _, url := range urls {
+	//wg.Add(len(urls))
+	chs := make([]chan int, len(urls))
+	for i, url := range urls {
 		// 开启一个goroutine
-		go fetch(url)
+		chs[i] = make(chan int)
+		go fetch(url, chs[i])
 	}
-	wg.Wait()
+	//wg.Wait()
+	for _, ch := range chs {
+		v, ok := <-ch
+		log.Printf("通道数据：--------v:%v,ok:%v", v, ok)
+	}
 
 	log.Printf("--------全部解析完毕------")
 }
 
 // 根据URL获取资源内容
-func fetch(url string) {
-	defer wg.Done()
+func fetch(url string, ch chan int) {
+	//defer wg.Done()
+	defer close(ch)
+
 	res, err := http.Get(url)
 	if err != nil {
 		log.Printf("请求出错:---%v", err)
@@ -376,7 +384,7 @@ func fetch(url string) {
 		gr.Insert(list)
 
 	}
-
+	ch <- 1
 }
 
 // 获取文件名
