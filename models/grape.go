@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"log"
 )
 
@@ -14,14 +15,33 @@ type Grape struct {
 }
 
 func (gp *Grape) Insert(list []*Grape) (err error) {
-	log.Println("写数据库....")
-	defer DB.Close()
-	log.Printf("数据源：%#v", list)
+	//defer DB.Close()
+	if len(list) == 0 {
+		log.Printf("数据库逻辑没有执行-----888----，空切片%v\n", list)
+		return
+	}
+	log.Println("...写数据库...")
 	statement := "insert into grape (article_id, link, title, abstract, article_time, site) values (:article_id, :link, :title, :abstract, :article_time, :site)"
 	_, err = DB.NamedExec(statement, list)
 	if err != nil {
-		log.Printf("数据库失败1%v\n", err)
+		log.Printf("数据库失败-----999----%v\n", err)
 		return
 	}
 	return
+}
+
+func (gp *Grape) Get(where string) bool {
+
+	var id int
+	sql := fmt.Sprintf("select id from grape where %s", where)
+	log.Printf("sql语句...%v", sql)
+	err := DB.Get(&id, sql)
+	if err != nil {
+		log.Printf("返回结果什么错误...%v", err)
+	}
+	//log.Printf("id=%d", id)
+	if id > 0 {
+		return true
+	}
+	return false
 }

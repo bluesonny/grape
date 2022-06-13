@@ -23,7 +23,7 @@ func init() {
 	} else {
 		log.Println("[ok]数据库连接成功...")
 	}
-	DB.SetMaxOpenConns(1024)
-	DB.SetMaxIdleConns(10)
+	DB.SetMaxOpenConns(256)
+	DB.SetMaxIdleConns(15)
 	return
 }

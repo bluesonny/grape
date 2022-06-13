@@ -48,7 +48,7 @@ func init() {
 		panic(err)
 	}
 	err = vip.Unmarshal(&ViperConfig)
-	log.Printf("解析到的配置:%v", ViperConfig)
+	//log.Printf("解析到的配置:%v", ViperConfig)
 	if err != nil {
 		panic(err)
 	}

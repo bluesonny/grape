@@ -8,38 +8,42 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
+	"sync"
+)
+
+var (
+	wg sync.WaitGroup
 )
 
 func Deal() {
 	urls := config.ViperConfig.Urls.List
+	wg.Add(len(urls))
 	for _, url := range urls {
 		// 开启一个goroutine
-		//go fetch(url, ch)
-		fetch(url)
+		go fetch(url)
 	}
+	wg.Wait()
 
+	log.Printf("--------全部解析完毕------")
 }
 
 // 根据URL获取资源内容
 func fetch(url string) {
-	//start := time.Now()
-	// 发送网络请求
+	defer wg.Done()
 	res, err := http.Get(url)
 	if err != nil {
-		// 输出异常信息
-		//ch <- fmt.Sprint(err)
-		os.Exit(999)
+		log.Printf("请求出错:---%v", err)
+		return
 	}
-	// 关闭资源
-	//res.Body.Close()
 	dom, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
-		log.Fatalln(err)
+		log.Printf("dom获取出错:---%v", err)
+		return
 	}
 	site := getFileName(url)
+	log.Printf("---------开始解析和入库--------：%s", site)
 	var list []*models.Grape
 	var gr models.Grape
 	switch site {
@@ -59,18 +63,23 @@ func fetch(url string) {
 			d := selection.Find("p.ms-item_subheader")
 			desc := d.Text()
 
-			fmt.Println("标题:" + title)
-			fmt.Println("链接:" + link)
 			fmt.Println("ID:" + id)
-			fmt.Println("时间:" + time)
+			fmt.Println("标题:" + title)
 			fmt.Println("摘要:" + desc)
+			fmt.Println("时间:" + time)
+			fmt.Println("链接:" + link)
 
 			g.ArticleId, _ = strconv.Atoi(id)
 			g.ArticleTime = time
 			g.Link = link
 			g.Title = title
 			g.Abstract = desc
+			ret := gr.Get("article_id=" + id)
+			if ret {
+				return
+			}
 			list = append(list, &g)
+
 		})
 		gr.Insert(list)
 
@@ -98,6 +107,10 @@ func fetch(url string) {
 			g.Link = cutStr(link, site)
 			g.Title = strings.TrimSpace(title)
 			g.Abstract = desc
+			ret := gr.Get("article_id=" + id)
+			if ret {
+				return
+			}
 			list = append(list, &g)
 		})
 		gr.Insert(list)
@@ -129,9 +142,46 @@ func fetch(url string) {
 			g.Link = link
 			g.Title = strings.TrimSpace(title)
 			g.Abstract = desc
+			ret := gr.Get("article_id=" + id)
+			if ret {
+				return
+			}
 			list = append(list, &g)
 		})
-	//gr.Insert(list)
+		gr.Insert(list)
+	case "racingnews365.com":
+		dom.Find("a.card--default").Each(func(i int, selection *goquery.Selection) {
+			var g models.Grape
+			g.Site = site
+			time, _ := selection.Find("time.postdate").Attr("datetime")
+			if time == "" {
+				return
+			}
+			id, _ := selection.Attr("data-id")
+			link, _ := selection.Attr("href")
+			link = cutStr(link, site)
+			title := selection.Find("span.card__title").Find("span").Text()
+
+			desc := ""
+
+			fmt.Println("ID:" + id)
+			fmt.Println("标题:" + title)
+			fmt.Println("摘要:" + desc)
+			fmt.Println("时间:" + time)
+			fmt.Println("连接:" + link)
+
+			g.ArticleId, _ = strconv.Atoi(id)
+			g.ArticleTime = time
+			g.Link = link
+			g.Title = title
+			g.Abstract = desc
+			ret := gr.Get("article_id=" + id)
+			if ret {
+				return
+			}
+			list = append(list, &g)
+		})
+		gr.Insert(list)
 	case "www.crash.net":
 		dom.Find("div.views-row").Each(func(i int, selection *goquery.Selection) {
 			var g models.Grape
@@ -160,61 +210,28 @@ func fetch(url string) {
 			g.Link = link
 			g.Title = title
 			g.Abstract = desc
-			list = append(list, &g)
-		})
-	//gr.Insert(list)
-
-	case "racingnews365.com":
-		dom.Find("a.card--default").Each(func(i int, selection *goquery.Selection) {
-			var g models.Grape
-			g.Site = site
-			time, _ := selection.Find("time.postdate").Attr("datetime")
-			//time := t.Find("span.field-content").Text()
-			if time == "" {
+			where := fmt.Sprintf("%s'%s'", "link=", link)
+			ret := gr.Get(where)
+			if ret {
 				return
 			}
-			id, _ := selection.Attr("data-id")
-			//a := selection.Find("div.views-field-title")
-			//l := a.Find("span>a")
-			link, _ := selection.Attr("href")
-			link = cutStr(link, site)
-			title := selection.Find("span.card__title").Find("span").Text()
-
-			//d := selection.Find("div.views-field-body")
-			desc := "" // d.Find("div>p").Text()
-
-			fmt.Println("ID:" + id)
-			fmt.Println("标题:" + title)
-			fmt.Println("摘要:" + desc)
-			fmt.Println("时间:" + time)
-			fmt.Println("连接:" + link)
-
-			g.ArticleId, _ = strconv.Atoi(id)
-			g.ArticleTime = time
-			g.Link = link
-			g.Title = title
-			g.Abstract = desc
 			list = append(list, &g)
 		})
-	//gr.Insert(list)
+		gr.Insert(list)
 
 	case "www.planetf1.com":
 		dom.Find("li.articleList__item").Each(func(i int, selection *goquery.Selection) {
 			var g models.Grape
 			g.Site = site
 			time, _ := selection.Find("time").Attr("datetime")
-			//time := t.Find("span.field-content").Text()
 			if time == "" {
 				return
 			}
-			//id, _ := selection.Attr("data-id")
 			id := "0"
 			a := selection.Find("a")
 			link, _ := a.Attr("href")
 			link = cutStr(link, site)
 			title := selection.Find("h3").Text()
-
-			//d := selection.Find("div.views-field-body")
 			desc := selection.Find("p").Text()
 
 			fmt.Println("ID:" + id)
@@ -228,9 +245,14 @@ func fetch(url string) {
 			g.Link = link
 			g.Title = title
 			g.Abstract = desc
+			where := fmt.Sprintf("%s'%s'", "link=", link)
+			ret := gr.Get(where)
+			if ret {
+				return
+			}
 			list = append(list, &g)
 		})
-	//gr.Insert(list)
+		gr.Insert(list)
 
 	case "www.gpfans.com":
 		div := dom.Find("div.bordernone").Next()
@@ -244,9 +266,8 @@ func fetch(url string) {
 				return
 			}
 			time = time + " " + t.Text()
-			id := "0" //selection.Attr("data-id")
+			id := "0"
 			a := selection.Find("a")
-			//l := a.Find("span>a")
 			link, _ := a.Attr("href")
 			link = cutStr(link, site)
 			title := selection.Find("h3").Text()
@@ -264,9 +285,14 @@ func fetch(url string) {
 			g.Link = link
 			g.Title = title
 			g.Abstract = desc
+			where := fmt.Sprintf("%s'%s'", "link=", link)
+			ret := gr.Get(where)
+			if ret {
+				return
+			}
 			list = append(list, &g)
 		})
-	//gr.Insert(list)
+		gr.Insert(list)
 
 	case "the-race.com":
 
@@ -281,9 +307,8 @@ func fetch(url string) {
 				return
 			}
 
-			id := "0" //selection.Attr("data-id")
+			id := "0"
 			a := selection.Find("h3>a")
-			//l := a.Find("span>a")
 			link, _ := a.Attr("href")
 			link = cutStr(link, site)
 			title := a.Text()
@@ -303,46 +328,49 @@ func fetch(url string) {
 			g.Link = link
 			g.Title = title
 			g.Abstract = desc
+			where := fmt.Sprintf("%s'%s'", "link=", link)
+			ret := gr.Get(where)
+			if ret {
+				return
+			}
 			list = append(list, &g)
 		})
-		//gr.Insert(list)
+		gr.Insert(list)
 
 	case "www.formula1.com":
 
-		log.Printf(site)
-		dom.Find("div.f1-latest-listing--grid-item").Each(func(i int, selection *goquery.Selection) {
+		dom.Find("a.f1-cc").Each(func(i int, selection *goquery.Selection) {
 			var g models.Grape
 			g.Site = site
+			time := ""
 
-			//t := selection.Find("div>span")
-			time := "" // t.Text()
-			////if time == "" {
-			//return
-			//}
+			id := "0"
 
-			id := "0" //selection.Attr("data-id")
-			a := selection.Find("a.f1-cc")
-			//l := a.Find("span>a")
-			link, _ := a.Attr("href")
-			//link = cutStr(link, site)
+			link, _ := selection.Attr("href")
+
 			ti := selection.Find("p.no-margin")
 			title := ti.Text()
 			title = strings.TrimSpace(title)
-			//d := selection.Find("p")
-			desc := "" // d.Text()
-			//desc = strings.TrimSpace(desc)
 
+			desc := ""
+
+			//fmt.Printf("序号:%d\n", i)
 			fmt.Println("ID:" + id)
 			fmt.Println("标题:" + title)
 			fmt.Println("摘要:" + desc)
 			fmt.Println("时间:" + time)
-			fmt.Println("连接:" + link)
+			fmt.Println("连接:" + link + "\n")
 
 			g.ArticleId, _ = strconv.Atoi(id)
 			g.ArticleTime = time
 			g.Link = link
 			g.Title = title
 			g.Abstract = desc
+			where := fmt.Sprintf("%s'%s'", "link=", link)
+			ret := gr.Get(where)
+			if ret {
+				return
+			}
 			list = append(list, &g)
 		})
 		gr.Insert(list)
