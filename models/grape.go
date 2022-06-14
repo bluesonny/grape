@@ -20,6 +20,11 @@ func (gp *Grape) Insert(list []*Grape) (err error) {
 		log.Printf("数据库逻辑没有执行-----888----，空切片%v\n", list)
 		return
 	}
+
+	for i := len(list)/2 - 1; i >= 0; i-- {
+		opp := len(list) - 1 - i
+		list[i], list[opp] = list[opp], list[i]
+	}
 	log.Println("...写数据库...")
 	statement := "insert into grape (article_id, link, title, abstract, article_time, site) values (:article_id, :link, :title, :abstract, :article_time, :site)"
 	_, err = DB.NamedExec(statement, list)
@@ -39,7 +44,7 @@ func (gp *Grape) Get(where string) bool {
 	if err != nil {
 		log.Printf("返回结果什么错误...%v", err)
 	}
-	//log.Printf("id=%d", id)
+	log.Printf("记录id=%d", id)
 	if id > 0 {
 		return true
 	}

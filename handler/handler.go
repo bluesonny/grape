@@ -19,27 +19,27 @@ var (
 
 func Deal() {
 	urls := config.ViperConfig.Urls.List
-	//wg.Add(len(urls))
-	chs := make([]chan int, len(urls))
-	for i, url := range urls {
+	//chs := make([]chan int, len(urls))
+	for _, url := range urls {
 		// 开启一个goroutine
-		chs[i] = make(chan int)
-		go fetch(url, chs[i])
+		wg.Add(1)
+		//chs[i] = make(chan int)
+		go fetch(url)
 	}
-	//wg.Wait()
-	for _, ch := range chs {
-		v, ok := <-ch
-		log.Printf("通道数据：--------v:%v,ok:%v", v, ok)
-	}
-
+	wg.Wait()
+	/*
+		for _, ch := range chs {
+			v, ok := <-ch
+			log.Printf("通道数据：--------v:%v,ok:%v", v, ok)
+		}
+	*/
 	log.Printf("--------全部解析完毕------")
 }
 
 // 根据URL获取资源内容
-func fetch(url string, ch chan int) {
-	//defer wg.Done()
-	defer close(ch)
-
+func fetch(url string) {
+	defer wg.Done()
+	//defer close(ch)
 	res, err := http.Get(url)
 	if err != nil {
 		log.Printf("请求出错:---%v", err)
@@ -82,7 +82,8 @@ func fetch(url string, ch chan int) {
 			g.Link = link
 			g.Title = title
 			g.Abstract = desc
-			ret := gr.Get("article_id=" + id)
+			where := fmt.Sprintf("article_id=%s and site='%s'", id, site)
+			ret := gr.Get(where)
 			if ret {
 				return
 			}
@@ -115,7 +116,8 @@ func fetch(url string, ch chan int) {
 			g.Link = cutStr(link, site)
 			g.Title = strings.TrimSpace(title)
 			g.Abstract = desc
-			ret := gr.Get("article_id=" + id)
+			where := fmt.Sprintf("article_id=%s and site='%s'", id, site)
+			ret := gr.Get(where)
 			if ret {
 				return
 			}
@@ -150,7 +152,8 @@ func fetch(url string, ch chan int) {
 			g.Link = link
 			g.Title = strings.TrimSpace(title)
 			g.Abstract = desc
-			ret := gr.Get("article_id=" + id)
+			where := fmt.Sprintf("article_id=%s and site='%s'", id, site)
+			ret := gr.Get(where)
 			if ret {
 				return
 			}
@@ -183,7 +186,8 @@ func fetch(url string, ch chan int) {
 			g.Link = link
 			g.Title = title
 			g.Abstract = desc
-			ret := gr.Get("article_id=" + id)
+			where := fmt.Sprintf("article_id=%s and site='%s'", id, site)
+			ret := gr.Get(where)
 			if ret {
 				return
 			}
@@ -228,7 +232,8 @@ func fetch(url string, ch chan int) {
 		gr.Insert(list)
 
 	case "www.planetf1.com":
-		dom.Find("li.articleList__item").Each(func(i int, selection *goquery.Selection) {
+		ar := dom.Find("header.articleList__header").Next()
+		ar.Find("li.articleList__item").Each(func(i int, selection *goquery.Selection) {
 			var g models.Grape
 			g.Site = site
 			time, _ := selection.Find("time").Attr("datetime")
@@ -242,6 +247,7 @@ func fetch(url string, ch chan int) {
 			title := selection.Find("h3").Text()
 			desc := selection.Find("p").Text()
 
+			fmt.Printf("--------------第%d条--------------\n:", i+1)
 			fmt.Println("ID:" + id)
 			fmt.Println("标题:" + title)
 			fmt.Println("摘要:" + desc)
@@ -263,16 +269,11 @@ func fetch(url string, ch chan int) {
 		gr.Insert(list)
 
 	case "www.gpfans.com":
-		div := dom.Find("div.bordernone").Next()
-		div.Find("div.headline").Each(func(i int, selection *goquery.Selection) {
+		dom.Find("div.nieuwereeks").Each(func(i int, selection *goquery.Selection) {
 			var g models.Grape
 			g.Site = site
 			time, _ := selection.Attr("data-datum")
-
 			t := selection.Find("li.headlinelabel").Next()
-			if time == "" {
-				return
-			}
 			time = time + " " + t.Text()
 			id := "0"
 			a := selection.Find("a")
@@ -281,6 +282,9 @@ func fetch(url string, ch chan int) {
 			title := selection.Find("h3").Text()
 			d := selection.Find("li.headlinelabel")
 			desc := d.Text()
+			if link == "" || title == "" {
+				return
+			}
 
 			fmt.Println("ID:" + id)
 			fmt.Println("标题:" + title)
@@ -301,30 +305,97 @@ func fetch(url string, ch chan int) {
 			list = append(list, &g)
 		})
 		gr.Insert(list)
+	case "www.grandprix247.com":
+		dom.Find("article.cb-blog-style-c").Each(func(i int, selection *goquery.Selection) {
+			var g models.Grape
+			g.Site = site
+
+			id, _ := selection.Attr("id")
+			id = cutStr(id, "post-")
+
+			a := selection.Find("h2>a")
+			link, _ := a.Attr("href")
+			link = cutStr(link, site)
+			time := link[1:11]
+			title := a.Text()
+			title = strings.TrimSpace(title)
+			d := selection.Find("div.cb-excerpt")
+			desc := d.Text()
+			desc = strings.TrimSpace(desc)
+
+			fmt.Printf("-------------------第 %d 条-------------------\n", i+1)
+			fmt.Println("ID:" + id)
+			fmt.Println("标题:" + title)
+			fmt.Println("摘要:" + desc)
+			fmt.Println("时间:" + time)
+			fmt.Println("连接:" + link)
+
+			g.ArticleId, _ = strconv.Atoi(id)
+			g.ArticleTime = time
+			g.Link = link
+			g.Title = title
+			g.Abstract = desc
+			where := fmt.Sprintf("article_id=%s and site='%s'", id, site)
+			ret := gr.Get(where)
+			if ret {
+				return
+			}
+			list = append(list, &g)
+		})
+		gr.Insert(list)
 
 	case "the-race.com":
 
-		log.Printf(site)
+		//抓取头条
+		var gr models.Grape
+		h := dom.Find("div.post-category").Next()
+		a := h.Find("h1>a")
+		link, _ := a.Attr("href")
+		title := a.Text()
+		d := h.Find("p")
+		desc := d.Text()
+		desc = strings.TrimSpace(desc)
+		t := dom.Find("span.time")
+		time := strings.TrimSpace(t.Text())
+		id := "0"
+		fmt.Printf("--------------头条--------------\n")
+		fmt.Println("ID:" + id)
+		fmt.Println("标题:" + title)
+		fmt.Println("摘要:" + desc)
+		fmt.Println("时间:" + time)
+		fmt.Println("连接:" + link)
+
+		gr.Site = site
+		gr.ArticleId, _ = strconv.Atoi(id)
+		gr.ArticleTime = time
+		gr.Link = link
+		gr.Title = title
+		gr.Abstract = desc
+		where := fmt.Sprintf("%s'%s'", "link=", link)
+		ret := gr.Get(where)
+		if !ret {
+			list = append(list, &gr)
+		}
+
 		dom.Find("div.related_group").Each(func(i int, selection *goquery.Selection) {
 			var g models.Grape
 			g.Site = site
 
 			t := selection.Find("div>span")
 			time := t.Text()
-			if time == "" {
-				return
-			}
-
 			id := "0"
 			a := selection.Find("h3>a")
 			link, _ := a.Attr("href")
-			link = cutStr(link, site)
 			title := a.Text()
 			title = strings.TrimSpace(title)
 			d := selection.Find("p")
 			desc := d.Text()
 			desc = strings.TrimSpace(desc)
+			if title == "" || link == "" {
+				return
+			}
 
+			fmt.Printf("-----------------第%d条-------------------\n", i+1)
 			fmt.Println("ID:" + id)
 			fmt.Println("标题:" + title)
 			fmt.Println("摘要:" + desc)
@@ -351,16 +422,15 @@ func fetch(url string, ch chan int) {
 			var g models.Grape
 			g.Site = site
 			time := ""
-
 			id := "0"
-
 			link, _ := selection.Attr("href")
-
 			ti := selection.Find("p.no-margin")
 			title := ti.Text()
 			title = strings.TrimSpace(title)
-
 			desc := ""
+			if title == "" || link == "" {
+				return
+			}
 
 			//fmt.Printf("序号:%d\n", i)
 			fmt.Println("ID:" + id)
@@ -384,7 +454,7 @@ func fetch(url string, ch chan int) {
 		gr.Insert(list)
 
 	}
-	ch <- 1
+	//ch <- 1
 }
 
 // 获取文件名

@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-
+	handler.Deal()
 	c := cron.New()
 	spec := ViperConfig.App.Time
 	c.AddFunc(spec, func() {
