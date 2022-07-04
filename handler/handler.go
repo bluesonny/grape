@@ -129,6 +129,11 @@ func fetch(url string, ch chan int) {
 			g.Site = site
 			id, _ := selection.Attr("id")
 			id = cutStr(id, "post-")
+			_, err := strconv.Atoi(id)
+			if err != nil {
+				return
+			}
+
 			time := "" // selection.Find("span.label__timestamp").Text()
 
 			a := selection.Find("[rel='bookmark']")
@@ -156,7 +161,7 @@ func fetch(url string, ch chan int) {
 			}
 			list = append(list, &g)
 		})
-		gr.Insert(list)
+		//gr.Insert(list)
 	case "racingnews365.com":
 		dom.Find("a.card--default").Each(func(i int, selection *goquery.Selection) {
 			var g models.Grape
