@@ -164,7 +164,7 @@ func fetch(url string) {
 			}
 			list = append(list, &g)
 		})
-		//gr.Insert(list)
+		gr.Insert(list)
 	case "racingnews365.com":
 		dom.Find("a.card--default").Each(func(i int, selection *goquery.Selection) {
 			var g models.Grape
